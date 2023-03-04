@@ -41,28 +41,40 @@ app.get('/api/persons', (request, response) => {
 });
 
 app.get('/info', (request, response) => {
-    const date = new Date();
-    const message = `<div>Phonebook has info for ${persons.length} people </div>\
-                    <div>${date.toString()}</div>`;
-    console.log(date.toString());
-    response.send(message);
+    Person.find({}).then(persons => {
+        const date = new Date();
+        const message = `<div>Phonebook has info for ${persons.length} people </div>\
+                        <div>${date.toString()}</div>`;
+        console.log(date.toString());
+        response.send(message);
+    })
 });
 
 app.get('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id);
-    const person = persons.find(person => person.id === id);
-    if (!person) {
-        return response.status(404).end();      
-    }
+    Person
+        .findById(request.params.id)
+        .then(person => {
+            if (!person) {
+                return response.status(404).end();      
+            }
+            response.json(person);
+        })
+        .catch(error => {
+            return response.status(404).end();
+        })
 
-    response.json(person);
 });
 
 app.delete('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id);
-    persons = persons.filter(person => person.id !== id);
+    // const id = Number(request.params.id);
+    // persons = persons.filter(person => person.id !== id);
 
-    console.log(persons);
+    Person
+        .findByIdAndDelete(request.params.id)
+        .then(person => {})
+        .catch(error => {});
+
+    // console.log(persons);
     response.status(204).send();
 });
 
@@ -74,9 +86,14 @@ const generateId = () => {
     }
 }
 
-app.post('/api/persons', (request, response) => {
+app.post('/api/persons', async (request, response) => {
     const body = request.body;
-    if (!body) {
+    // Check for empty body data: null and undefined case,
+    // case with no key, and case that the object is not
+    // initiated
+    if (body && 
+        Object.keys(body).length === 0 &&
+        body.constructor === Object) {
         return response.status(400).json({
             error: "Missing body data",
         });
@@ -88,20 +105,27 @@ app.post('/api/persons', (request, response) => {
         });
     }
 
-    if (persons.find(person => person.name === body.name)) {
+    // if (persons.find(person => person.name === body.name)) {
+    //     return response.status(400).json({
+    //         error: "name must be unique",
+    //     });
+    // }
+    const existedPerson = await Person.findOne({name: body.name});
+    
+    if (existedPerson) {
         return response.status(400).json({
             error: "name must be unique",
         });
     }
 
-    const person = {
-        id: generateId(),
+    const person = new Person({
         name: body.name,
         number: body.number
-    };
-    
-    persons = persons.concat(person);
-    response.status(201).json(person);
+    });
+
+    person.save().then(savedPerson => {
+        response.status(201).json(savedPerson);
+    })
 })
 
 const PORT = process.env.PORT || 3001;
