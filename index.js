@@ -11,28 +11,6 @@ morgan.token('data', (request, response) => {
 })
 app.use(morgan(':method :url :status :res[content-length] - :response-time ms :data'));
 
-// let persons = [
-//     { 
-//         "id": 1,
-//         "name": "Arto Hellas", 
-//         "number": "040-123456"
-//       },
-//       { 
-//         "id": 2,
-//         "name": "Ada Lovelace", 
-//         "number": "39-44-5323523"
-//       },
-//       { 
-//         "id": 3,
-//         "name": "Dan Abramov", 
-//         "number": "12-43-234345"
-//       },
-//       { 
-//         "id": 4,
-//         "name": "Mary Poppendieck", 
-//         "number": "39-23-6423122"
-//       }
-// ];
 
 app.get('/api/persons', (request, response) => {
     Person.find({}).then(persons => {
@@ -50,7 +28,7 @@ app.get('/info', (request, response) => {
     })
 });
 
-app.get('/api/persons/:id', (request, response) => {
+app.get('/api/persons/:id', (request, response, next) => {
     Person
         .findById(request.params.id)
         .then(person => {
@@ -59,23 +37,18 @@ app.get('/api/persons/:id', (request, response) => {
             }
             response.json(person);
         })
-        .catch(error => {
-            return response.status(404).end();
-        })
+        .catch(error => {next(error)})
 
 });
 
-app.delete('/api/persons/:id', (request, response) => {
-    // const id = Number(request.params.id);
-    // persons = persons.filter(person => person.id !== id);
-
+app.delete('/api/persons/:id', (request, response, next) => {
     Person
-        .findByIdAndDelete(request.params.id)
-        .then(person => {})
-        .catch(error => {});
+        .findByIdAndRemove(request.params.id)
+        .then(person => {
+            response.status(204).send();
+        })
+        .catch(error => {next(error)});
 
-    // console.log(persons);
-    response.status(204).send();
 });
 
 const generateId = () => {
@@ -87,7 +60,7 @@ const generateId = () => {
 }
 
 app.post('/api/persons', async (request, response) => {
-    const body = request.body;
+    const body = request.body;   
     // Check for empty body data: null and undefined case,
     // case with no key, and case that the object is not
     // initiated
@@ -98,26 +71,13 @@ app.post('/api/persons', async (request, response) => {
             error: "Missing body data",
         });
     }
-
+    
     if (!body.name || !body.number) {
         return response.status(400).json({
             error: "Missing name or number",
         });
     }
-
-    // if (persons.find(person => person.name === body.name)) {
-    //     return response.status(400).json({
-    //         error: "name must be unique",
-    //     });
-    // }
-    const existedPerson = await Person.findOne({name: body.name});
     
-    if (existedPerson) {
-        return response.status(400).json({
-            error: "name must be unique",
-        });
-    }
-
     const person = new Person({
         name: body.name,
         number: body.number
@@ -127,6 +87,32 @@ app.post('/api/persons', async (request, response) => {
         response.status(201).json(savedPerson);
     })
 })
+
+app.put('/api/persons/:id', (request, response, next) => {
+    const body = request.body;
+
+    const person = {
+        name: body.name,
+        number: body.number
+    };
+
+    Person.findByIdAndUpdate(request.params.id, person, {new: true}) 
+        .then(updatedNote => {
+            response.json(updatedNote);
+        })
+        .catch(error => next(error));
+})
+
+const errorHandler = (error, request, response, next) => {
+    console.error(error.message);
+    
+    if (error.name === 'CastError') {
+        return response.status(400).send({error: 'malformatted id'});
+    }
+
+    next(error);
+}
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
