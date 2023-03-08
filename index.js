@@ -59,33 +59,35 @@ const generateId = () => {
     }
 }
 
-app.post('/api/persons', async (request, response) => {
+app.post('/api/persons', async (request, response, next) => {
     const body = request.body;   
     // Check for empty body data: null and undefined case,
     // case with no key, and case that the object is not
     // initiated
-    if (body && 
-        Object.keys(body).length === 0 &&
-        body.constructor === Object) {
-        return response.status(400).json({
-            error: "Missing body data",
-        });
-    }
+    // if (body && 
+    //     Object.keys(body).length === 0 &&
+    //     body.constructor === Object) {
+    //     return response.status(400).json({
+    //         error: "Missing body data",
+    //     });
+    // }
     
-    if (!body.name || !body.number) {
-        return response.status(400).json({
-            error: "Missing name or number",
-        });
-    }
+    // if (!body.name || !body.number) {
+    //     return response.status(400).json({
+    //         error: "Missing name or number",
+    //     });
+    // }
     
     const person = new Person({
         name: body.name,
         number: body.number
     });
 
-    person.save().then(savedPerson => {
+    person.save()
+        .then(savedPerson => {
         response.status(201).json(savedPerson);
     })
+        .catch(error => next(error));
 })
 
 app.put('/api/persons/:id', (request, response, next) => {
@@ -96,7 +98,11 @@ app.put('/api/persons/:id', (request, response, next) => {
         number: body.number
     };
 
-    Person.findByIdAndUpdate(request.params.id, person, {new: true}) 
+    Person.findByIdAndUpdate(
+        request.params.id, 
+        person, 
+        {new: true, runValidators: true, context: 'query'}
+        ) 
         .then(updatedNote => {
             response.json(updatedNote);
         })
@@ -108,6 +114,10 @@ const errorHandler = (error, request, response, next) => {
     
     if (error.name === 'CastError') {
         return response.status(400).send({error: 'malformatted id'});
+    } 
+    
+    if (error.name === 'ValidationError') {
+        return response.status(400).send({error: error.message});
     }
 
     next(error);
@@ -118,3 +128,4 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
+0
