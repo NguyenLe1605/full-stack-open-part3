@@ -4,5 +4,6 @@
     },
     "extends": [
         "airbnb"
-    ]
+    ],
+    "import/no-extraneous-dependencies": ["error", {"devDependencies": true}]
 }
